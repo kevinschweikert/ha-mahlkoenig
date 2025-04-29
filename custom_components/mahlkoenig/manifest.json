@@ -1,0 +1,18 @@
+{
+	"domain": "mahlkoenig",
+	"name": "Mahlkönig X54",
+	"codeowners": ["@kevinschweikert"],
+	"config_flow": true,
+	"documentation": "https://github.com/kevinschweikert/ha-mahlkoenig",
+	"integration_type": "device",
+	"iot_class": "local_push",
+	"issue_tracker": "https://github.com/kevinschweikert/ha-mahlkoenig",
+	"requirements": ["mahlkoenig==0.3.0"],
+	"version": "0.1.0",
+	"zeroconf": [
+		{
+			"type": "_ws._tcp.local.",
+			"name": "mahlkoenig-x54-grinder*"
+		}
+	]
+}
