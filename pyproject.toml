@@ -1,6 +1,6 @@
 [project]
 name = "ha-mahlkoenig"
-version = "0.1.0"
+version = "0.1.1"
 description = "A home assistant custom component for the Mahlkönig X54 grinder"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -9,7 +9,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "mahlkoenig==0.3",
+  "mahlkoenig==0.3.1",
 ]
 
 [dependency-groups]
