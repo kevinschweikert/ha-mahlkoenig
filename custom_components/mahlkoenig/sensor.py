@@ -2,15 +2,17 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
-from mahlkoenig import Grinder
+from mahlkoenig import Grinder, Recipe
 from homeassistant.components.sensor import (
     SensorDeviceClass,
+    SensorStateClass,
     SensorEntity,
     SensorEntityDescription,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory, UnitOfTime
+from homeassistant.const import EntityCategory, UnitOfInformation, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -25,7 +27,21 @@ PARALLEL_UPDATES = 0
 class MahlkonigSensorEntityDescription(SensorEntityDescription):
     """Description for X54 sensor entities."""
 
-    value_fn: Callable[[Grinder], int | float | None]
+    value_fn: Callable[[Grinder], int | float | None] = lambda _: None
+    attr_fn: Callable[[Grinder], dict[str, Any] | None] = lambda _: None
+
+
+def _recipe_attrs(recipe: Recipe) -> dict[str, Any] | None:
+    return {
+        "bean_name": recipe.bean_name,
+        "brewing_type": recipe.brewing_type.name,
+        "grinding_degree": recipe.grinding_degree,
+        "guid": recipe.guid,
+        "last_modify_index": recipe.last_modify_index,
+        "last_modify_time": recipe.last_modify_time,
+        "name": recipe.name,
+        "recipe_no": recipe.recipe_no,
+    }
 
 
 async def async_setup_entry(
@@ -44,7 +60,7 @@ async def async_setup_entry(
             suggested_unit_of_measurement=UnitOfTime.HOURS,
             entity_category=EntityCategory.DIAGNOSTIC,
             icon="mdi:clock-time-four",
-            state_class=None,
+            state_class=SensorStateClass.MEASUREMENT,
             value_fn=lambda grinder: grinder.machine_info.disc_life_time.total_seconds(),
         ),
         MahlkonigSensorEntityDescription(
@@ -55,8 +71,24 @@ async def async_setup_entry(
             suggested_unit_of_measurement=UnitOfTime.HOURS,
             entity_category=EntityCategory.DIAGNOSTIC,
             icon="mdi:clock-time-four",
-            state_class=None,
+            state_class=SensorStateClass.MEASUREMENT,
             value_fn=lambda grinder: grinder.statistics.total_on_time.total_seconds(),
+        ),
+        MahlkonigSensorEntityDescription(
+            key="system_restarts",
+            name="System Restarts",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:numeric",
+            state_class=SensorStateClass.TOTAL_INCREASING,
+            value_fn=lambda grinder: grinder.statistics.system_restarts,
+        ),
+        MahlkonigSensorEntityDescription(
+            key="total_grind_shots",
+            name="Total Grind Shots",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:numeric",
+            state_class=SensorStateClass.TOTAL_INCREASING,
+            value_fn=lambda grinder: grinder.statistics.total_grind_shots,
         ),
         MahlkonigSensorEntityDescription(
             key="total_grind_time",
@@ -66,7 +98,7 @@ async def async_setup_entry(
             suggested_unit_of_measurement=UnitOfTime.HOURS,
             entity_category=EntityCategory.DIAGNOSTIC,
             icon="mdi:clock-time-four",
-            state_class=None,
+            state_class=SensorStateClass.MEASUREMENT,
             value_fn=lambda grinder: grinder.statistics.total_grind_time.total_seconds(),
         ),
         MahlkonigSensorEntityDescription(
@@ -77,7 +109,7 @@ async def async_setup_entry(
             suggested_unit_of_measurement=UnitOfTime.HOURS,
             entity_category=EntityCategory.DIAGNOSTIC,
             icon="mdi:clock-time-four",
-            state_class=None,
+            state_class=SensorStateClass.MEASUREMENT,
             value_fn=lambda grinder: grinder.statistics.standby_time.total_seconds(),
         ),
         MahlkonigSensorEntityDescription(
@@ -91,8 +123,8 @@ async def async_setup_entry(
             value_fn=lambda grinder: str(grinder.system_status.active_menu),
         ),
     ]
+
     entity_descriptions.extend(
-        # TODO: add recipe attrs
         [
             MahlkonigSensorEntityDescription(
                 key=f"recipe_{recipe_no}_grind_time",
@@ -101,11 +133,55 @@ async def async_setup_entry(
                 device_class=SensorDeviceClass.DURATION,
                 icon="mdi:av-timer",
                 state_class=None,
+                attr_fn=lambda grinder, r=recipe_no: _recipe_attrs(grinder.recipes[r]),
                 value_fn=lambda grinder, r=recipe_no: grinder.recipes[
                     r
                 ].grind_time.total_seconds(),
             )
             for recipe_no in coordinator.grinder.recipes.keys()
+        ]
+    )
+
+    entity_descriptions.extend(
+        [
+            MahlkonigSensorEntityDescription(
+                key="manual_mode_grind_time",
+                name="Manual Mode Grind Time",
+                native_unit_of_measurement=UnitOfTime.SECONDS,
+                suggested_unit_of_measurement=UnitOfTime.MINUTES,
+                device_class=SensorDeviceClass.DURATION,
+                icon="mdi:av-timer",
+                state_class=None,
+                value_fn=lambda grinder: grinder.statistics.manual_mode_grind_time.total_seconds(),
+            )
+        ]
+    )
+
+    entity_descriptions.extend(
+        [
+            MahlkonigSensorEntityDescription(
+                key=f"recipe_{recipe_no}_shots",
+                name=f"Recipe {recipe_no} Shots",
+                state_class=SensorStateClass.TOTAL_INCREASING,
+                icon="mdi:numeric",
+                attr_fn=lambda grinder, r=recipe_no: _recipe_attrs(grinder.recipes[r]),
+                value_fn=lambda grinder, r=recipe_no: getattr(
+                    grinder.statistics, f"recipe_{r}_grind_shots"
+                ),
+            )
+            for recipe_no in range(1, 5)
+        ]
+    )
+
+    entity_descriptions.extend(
+        [
+            MahlkonigSensorEntityDescription(
+                key="manual_mode_shots",
+                name="Manual Mode Shots",
+                state_class=SensorStateClass.TOTAL_INCREASING,
+                icon="mdi:numeric",
+                value_fn=lambda grinder: grinder.statistics.manual_mode_grind_shots,
+            )
         ]
     )
 
@@ -121,6 +197,11 @@ class GrinderSensor(MahlkonigEntity[MahlkonigSensorEntityDescription], SensorEnt
     """The mapping of the input port index to the corresponding output port index"""
 
     entity_description: MahlkonigSensorEntityDescription
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return extra attributes."""
+        return self.entity_description.attr_fn(self.coordinator.grinder)
 
     @callback
     def _handle_coordinator_update(self) -> None:
