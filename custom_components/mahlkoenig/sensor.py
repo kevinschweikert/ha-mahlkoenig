@@ -145,7 +145,7 @@ async def async_setup_entry(
                 native_unit_of_measurement=UnitOfTime.SECONDS,
                 device_class=SensorDeviceClass.DURATION,
                 icon="mdi:av-timer",
-                state_class=None,
+                state_class=SensorStateClass.TOTAL_INCREASING,
                 attr_fn=lambda grinder, r=recipe_no: _recipe_attrs(grinder.recipes[r]),
                 value_fn=lambda grinder, r=recipe_no: grinder.recipes[
                     r
@@ -164,7 +164,7 @@ async def async_setup_entry(
                 suggested_unit_of_measurement=UnitOfTime.MINUTES,
                 device_class=SensorDeviceClass.DURATION,
                 icon="mdi:av-timer",
-                state_class=None,
+                state_class=SensorStateClass.TOTAL_INCREASING,
                 value_fn=lambda grinder: grinder.statistics.manual_mode_grind_time.total_seconds(),
             )
         ]
@@ -194,6 +194,7 @@ async def async_setup_entry(
                 native_unit_of_measurement=UnitOfTime.SECONDS,
                 suggested_unit_of_measurement=UnitOfTime.MINUTES,
                 device_class=SensorDeviceClass.DURATION,
+                state_class=SensorStateClass.TOTAL_INCREASING,
                 icon="mdi:clock-time-four",
                 attr_fn=lambda grinder, r=recipe_no: _recipe_attrs(grinder.recipes[r]),
                 value_fn=lambda grinder, r=recipe_no: getattr(
