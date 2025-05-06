@@ -7,7 +7,7 @@
 	"integration_type": "device",
 	"iot_class": "local_push",
 	"issue_tracker": "https://github.com/kevinschweikert/ha-mahlkoenig",
-	"requirements": ["mahlkoenig==0.3.1"],
+	"requirements": ["mahlkoenig==0.4.0"],
 	"version": "0.1.0",
 	"zeroconf": [
 		{

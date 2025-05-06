@@ -1,12 +1,15 @@
 import logging
 import asyncio
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.exceptions import ConfigEntryAuthFailed
+
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from mahlkoenig import Grinder
+from mahlkoenig.exceptions import AuthenticationError, ConnectionError, ProtocolError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,12 +31,23 @@ class MahlkonigUpdateCoordinator(DataUpdateCoordinator[None]):
 
         self._grinder = Grinder(host=host, port=port, session=session)
 
+        self._last_recipe_update = datetime.min
+        self._last_statistics_update = datetime.min
+        self._last_wifi_info_update = datetime.min
+
+        # Update intervals for different data types (in seconds)
+        self._recipe_update_interval = timedelta(minutes=5)
+        self._statistics_update_interval = timedelta(minutes=5)
+        self._wifi_info_update_interval = timedelta(minutes=1)
+
     @property
     def grinder(self) -> Grinder:
+        """Return the grinder client."""
         return self._grinder
 
     @property
     def available(self) -> bool:
+        """Return True if the grinder is connected."""
         return self._grinder.connected
 
     async def _async_setup(self):
@@ -47,16 +61,25 @@ class MahlkonigUpdateCoordinator(DataUpdateCoordinator[None]):
         """
         try:
             async with asyncio.timeout(10):
-                await self.grinder.connect()
-                await self.grinder.request_machine_info()
-                await self.grinder.request_wifi_info()
-                await self.grinder.request_system_status()
-                await self.grinder.request_auto_sleep_time()
-                await self.grinder.request_recipe_list()
-                await self.grinder.request_statistics()
-        except Exception as e:
-            _LOGGER.error(e)
-            raise UpdateFailed("Init: Error getting device data of Grinder") from e
+                await self._grinder.connect()
+
+                await self._grinder.request_machine_info()
+                await self._grinder.request_wifi_info()
+                await self._grinder.request_system_status()
+                await self._grinder.request_auto_sleep_time()
+                await self._grinder.request_recipe_list()
+                await self._grinder.request_statistics()
+
+                now = datetime.now()
+                self._last_recipe_update = now
+                self._last_statistics_update = now
+                self._last_wifi_info_update = now
+                self._last_auto_sleep_update = now
+
+        except AuthenticationError as err:
+            raise ConfigEntryAuthFailed from err
+        except ConnectionError as err:
+            raise UpdateFailed("Init: Error getting device data of Grinder") from err
 
     async def _async_update_data(self) -> None:
         """Fetch the latest values status from the video matrix."""
@@ -66,9 +89,36 @@ class MahlkonigUpdateCoordinator(DataUpdateCoordinator[None]):
                 if not self._grinder.connected:
                     await self._grinder.connect()
                 await self._grinder.request_machine_info()
-        except Exception as e:
-            _LOGGER.error(e)
-            await self._grinder.close()
-            raise UpdateFailed("Update: Error getting device data of Grinder") from e
+                await self._grinder.request_system_status()
+                await self._grinder.request_auto_sleep_time()
 
-        return
+                now = datetime.now()
+                if (now - self._last_recipe_update) >= self._recipe_update_interval:
+                    await self._grinder.request_recipe_list()
+                    self._last_recipe_update = now
+
+                if (
+                    now - self._last_statistics_update
+                ) >= self._statistics_update_interval:
+                    await self._grinder.request_statistics()
+                    self._last_statistics_update = now
+
+                if (
+                    now - self._last_wifi_info_update
+                ) >= self._wifi_info_update_interval:
+                    await self._grinder.request_recipe_list()
+                    self._last_wifi_info_update = now
+
+        except AuthenticationError as err:
+            raise ConfigEntryAuthFailed from err
+        except (ConnectionError, asyncio.TimeoutError) as err:
+            await self._grinder.close()
+            raise UpdateFailed("Cannot connect to grinder") from err
+        except ProtocolError as err:
+            raise UpdateFailed("Unknown message from grinder") from err
+        except Exception as err:
+            _LOGGER.debug("Unknown grinder error", exc_info=True)
+            await self._grinder.close()
+            raise UpdateFailed("Unknown grinder error") from err
+
+        return None

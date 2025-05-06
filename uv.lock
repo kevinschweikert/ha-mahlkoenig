@@ -723,10 +723,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "mahlkoenig", specifier = "==0.3.1" }]
+requires-dist = [{ name = "mahlkoenig", specifier = "==0.4" }]
 
 [package.metadata.requires-dev]
-dev = [{ name = "homeassistant", specifier = "==2025.4.4" }]
+dev = [{ name = "homeassistant", specifier = ">=2025.4" }]
 
 [[package]]
 name = "habluetooth"
@@ -971,16 +971,16 @@ sdist = { url = "https://files.pythonhosted.org/packages/96/e3/42c87871920602a3c
 
 [[package]]
 name = "mahlkoenig"
-version = "0.3.1"
+version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
     { name = "pydantic" },
     { name = "pydantic-extra-types" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/aa/c3/6666c4d448b9a0f3dbcf93eef86ea32fa9ef688ab7ea052b27f0d53bac6e/mahlkoenig-0.3.1.tar.gz", hash = "sha256:5f30da8032d2811c21742e0c3581faae837a3543b29d146a3f468ea4fea6fd2c", size = 9948 }
+sdist = { url = "https://files.pythonhosted.org/packages/95/5d/90aa452edd527ca833931fd1ffffa9a01ca47ad97138a91d74e21d97b05f/mahlkoenig-0.4.0.tar.gz", hash = "sha256:ba80209a54ba2568cb874cddeec36040f9507148757ac23e8a2231920376d465", size = 10042 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/9c/e6f0a3113c9ae0312eb09e527b69e3aa74066f95c28fc9600fe5b291b413/mahlkoenig-0.3.1-py3-none-any.whl", hash = "sha256:c9cdbff90768d3f9c808c22d00dbadd551cee977bea10d1f42cc2e12c12559eb", size = 7960 },
+    { url = "https://files.pythonhosted.org/packages/74/37/94b69436a27da61480e7d40297dfea5567864f4351de0a50c80d82cfa04b/mahlkoenig-0.4.0-py3-none-any.whl", hash = "sha256:e04ea550c697cd325dcc26b8296c54a40390227ca039516c406cf60ad0bfce55", size = 8111 },
 ]
 
 [[package]]

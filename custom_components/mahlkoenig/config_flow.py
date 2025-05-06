@@ -6,12 +6,13 @@ from typing import Any
 
 import voluptuous as vol
 
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from mahlkoenig import Grinder, LoginError
+from mahlkoenig import Grinder, AuthenticationError
 
 from .const import DOMAIN
 
@@ -64,7 +65,9 @@ class MahlkonigConfigFlow(ConfigFlow, domain=DOMAIN):
                         title=f"Mahlkönig X54 ({self._host})", data=user_input
                     )
 
-            except LoginError:
+            except AuthenticationError as err:
+                raise ConfigEntryAuthFailed from err
+            except ConnectionError:
                 errors["base"] = "cannot_connect"
 
         return self.async_show_form(
