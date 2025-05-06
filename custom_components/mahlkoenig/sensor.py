@@ -4,17 +4,18 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from mahlkoenig import Grinder, Recipe
 from homeassistant.components.sensor import (
     SensorDeviceClass,
-    SensorStateClass,
     SensorEntity,
     SensorEntityDescription,
+    SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory, UnitOfInformation, UnitOfTime
+from homeassistant.const import EntityCategory, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from mahlkoenig import Grinder, Recipe
 
 from .coordinator import MahlkonigUpdateCoordinator
 from .entity import MahlkonigEntity
@@ -27,6 +28,7 @@ PARALLEL_UPDATES = 0
 class MahlkonigSensorEntityDescription(SensorEntityDescription):
     """Description for X54 sensor entities."""
 
+    enabled: bool = True
     value_fn: Callable[[Grinder], int | float | None] = lambda _: None
     attr_fn: Callable[[Grinder], dict[str, Any] | None] = lambda _: None
 
@@ -100,6 +102,17 @@ async def async_setup_entry(
             icon="mdi:clock-time-four",
             state_class=SensorStateClass.MEASUREMENT,
             value_fn=lambda grinder: grinder.statistics.total_grind_time.total_seconds(),
+        ),
+        MahlkonigSensorEntityDescription(
+            key="total_motor_on_time",
+            name="Total Motor On Time",
+            device_class=SensorDeviceClass.DURATION,
+            native_unit_of_measurement=UnitOfTime.SECONDS,
+            suggested_unit_of_measurement=UnitOfTime.MINUTES,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:clock-time-four",
+            state_class=SensorStateClass.MEASUREMENT,
+            value_fn=lambda grinder: grinder.statistics.total_motor_on_time.total_seconds(),
         ),
         MahlkonigSensorEntityDescription(
             key="standby_time",
@@ -176,12 +189,47 @@ async def async_setup_entry(
     entity_descriptions.extend(
         [
             MahlkonigSensorEntityDescription(
+                key=f"recipe_{recipe_no}_time",
+                name=f"Recipe {recipe_no} Time",
+                native_unit_of_measurement=UnitOfTime.SECONDS,
+                suggested_unit_of_measurement=UnitOfTime.MINUTES,
+                device_class=SensorDeviceClass.DURATION,
+                icon="mdi:clock-time-four",
+                attr_fn=lambda grinder, r=recipe_no: _recipe_attrs(grinder.recipes[r]),
+                value_fn=lambda grinder, r=recipe_no: getattr(
+                    grinder.statistics, f"recipe_{r}_grind_time"
+                ).total_seconds(),
+            )
+            for recipe_no in range(1, 5)
+        ]
+    )
+
+    entity_descriptions.extend(
+        [
+            MahlkonigSensorEntityDescription(
                 key="manual_mode_shots",
                 name="Manual Mode Shots",
                 state_class=SensorStateClass.TOTAL_INCREASING,
                 icon="mdi:numeric",
                 value_fn=lambda grinder: grinder.statistics.manual_mode_grind_shots,
             )
+        ]
+    )
+
+    entity_descriptions.extend(
+        [
+            MahlkonigSensorEntityDescription(
+                key=f"total_errors_{error_no:02}",
+                name=f"Total Errors {error_no:02}",
+                state_class=SensorStateClass.TOTAL_INCREASING,
+                entity_category=EntityCategory.DIAGNOSTIC,
+                icon="mdi:numeric",
+                enabled=False,
+                value_fn=lambda grinder, e=error_no: getattr(
+                    grinder.statistics, f"total_errors_{e:02}"
+                ),
+            )
+            for error_no in (1, 2, 3, 4, 8, 9, 10)
         ]
     )
 
