@@ -98,18 +98,21 @@ class MahlkonigUpdateCoordinator(DataUpdateCoordinator[None]):
 
                 now = datetime.now()
                 if (now - self._last_recipe_update) >= self._recipe_update_interval:
+                    _LOGGER.debug("fetching recipe_updates")
                     await self._grinder.request_recipe_list()
                     self._last_recipe_update = now
 
                 if (
                     now - self._last_statistics_update
                 ) >= self._statistics_update_interval:
+                    _LOGGER.debug("fetching statistics")
                     await self._grinder.request_statistics()
                     self._last_statistics_update = now
 
                 if (
                     now - self._last_wifi_info_update
                 ) >= self._wifi_info_update_interval:
+                    _LOGGER.debug("fetching wifi settings")
                     await self._grinder.request_recipe_list()
                     self._last_wifi_info_update = now
 
