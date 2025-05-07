@@ -9,7 +9,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from mahlkoenig import Grinder
-from mahlkoenig.exceptions import AuthenticationError, ConnectionError, ProtocolError
+from mahlkoenig.exceptions import (
+    MahlkoenigAuthenticationError,
+    MahlkoenigConnectionError,
+    MahlkoenigProtocolError,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -76,9 +80,9 @@ class MahlkonigUpdateCoordinator(DataUpdateCoordinator[None]):
                 self._last_wifi_info_update = now
                 self._last_auto_sleep_update = now
 
-        except AuthenticationError as err:
+        except MahlkoenigAuthenticationError as err:
             raise ConfigEntryAuthFailed from err
-        except ConnectionError as err:
+        except MahlkoenigConnectionError as err:
             raise UpdateFailed("Init: Error getting device data of Grinder") from err
 
     async def _async_update_data(self) -> None:
@@ -109,12 +113,12 @@ class MahlkonigUpdateCoordinator(DataUpdateCoordinator[None]):
                     await self._grinder.request_recipe_list()
                     self._last_wifi_info_update = now
 
-        except AuthenticationError as err:
+        except MahlkoenigAuthenticationError as err:
             raise ConfigEntryAuthFailed from err
-        except (ConnectionError, asyncio.TimeoutError) as err:
+        except (MahlkoenigConnectionError, asyncio.TimeoutError) as err:
             await self._grinder.close()
             raise UpdateFailed("Cannot connect to grinder") from err
-        except ProtocolError as err:
+        except MahlkoenigProtocolError as err:
             raise UpdateFailed("Unknown message from grinder") from err
         except Exception as err:
             _LOGGER.debug("Unknown grinder error", exc_info=True)

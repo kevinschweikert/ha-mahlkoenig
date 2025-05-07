@@ -12,7 +12,7 @@ from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from mahlkoenig import Grinder, AuthenticationError
+from mahlkoenig import Grinder, MahlkoenigAuthenticationError, MahlkoenigConnectionError
 
 from .const import DOMAIN
 
@@ -65,9 +65,9 @@ class MahlkonigConfigFlow(ConfigFlow, domain=DOMAIN):
                         title=f"Mahlkönig X54 ({self._host})", data=user_input
                     )
 
-            except AuthenticationError as err:
+            except MahlkoenigAuthenticationError as err:
                 raise ConfigEntryAuthFailed from err
-            except ConnectionError:
+            except MahlkoenigConnectionError:
                 errors["base"] = "cannot_connect"
 
         return self.async_show_form(
@@ -120,7 +120,7 @@ class MahlkonigConfigFlow(ConfigFlow, domain=DOMAIN):
                     session=async_get_clientsession(self.hass),
                 ):
                     pass
-            except ConnectionError:
+            except MahlkoenigConnectionError:
                 errors["base"] = "cannot_connect"
                 return self.async_show_form(
                     step_id="confirm_discovery",
