@@ -40,7 +40,7 @@ class MahlkonigUpdateCoordinator(DataUpdateCoordinator[None]):
         self._last_wifi_info_update = datetime.min
 
         # Update intervals for different data types (in seconds)
-        self._recipe_update_interval = timedelta(minutes=5)
+        self._recipe_update_interval = timedelta(minutes=1)
         self._statistics_update_interval = timedelta(minutes=5)
         self._wifi_info_update_interval = timedelta(minutes=1)
 
