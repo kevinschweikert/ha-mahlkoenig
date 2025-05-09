@@ -5,7 +5,7 @@
 	"config_flow": true,
 	"documentation": "https://github.com/kevinschweikert/ha-mahlkoenig",
 	"integration_type": "device",
-	"iot_class": "local_pull",
+	"iot_class": "local_polling",
 	"issue_tracker": "https://github.com/kevinschweikert/ha-mahlkoenig",
 	"requirements": ["mahlkoenig==0.5.0"],
 	"version": "0.1.0",
