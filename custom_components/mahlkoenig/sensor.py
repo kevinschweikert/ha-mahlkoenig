@@ -1,11 +1,14 @@
 """Video Matrix Mapping Sensor"""
 
+import logging
+
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
+    RestoreSensor,
     SensorEntity,
     SensorEntityDescription,
     SensorStateClass,
@@ -22,6 +25,8 @@ from .entity import MahlkonigEntity
 
 # Coordinator is used to centralize the data updates
 PARALLEL_UPDATES = 0
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -125,16 +130,6 @@ async def async_setup_entry(
             state_class=SensorStateClass.MEASUREMENT,
             value_fn=lambda grinder: grinder.statistics.standby_time.total_seconds(),
         ),
-        MahlkonigSensorEntityDescription(
-            key="active_menu",
-            name="Active Menu",
-            device_class=SensorDeviceClass.ENUM,
-            options=["1", "2", "3", "4"],
-            entity_category=EntityCategory.DIAGNOSTIC,
-            icon="mdi:dots-horizontal",
-            state_class=None,
-            value_fn=lambda grinder: str(grinder.system_status.active_menu),
-        ),
     ]
 
     entity_descriptions.extend(
@@ -235,17 +230,77 @@ async def async_setup_entry(
     )
 
     sensors = [
-        GrinderSensor(coordinator, entity_description)
+        GrinderRestoreSensor(coordinator, entity_description)
         for entity_description in entity_descriptions
     ]
+
+    sensors.append(
+        GrinderSensor(
+            coordinator,
+            MahlkonigSensorEntityDescription(
+                key="active_menu",
+                name="Active Menu",
+                device_class=SensorDeviceClass.ENUM,
+                options=["1", "2", "3", "4"],
+                entity_category=EntityCategory.DIAGNOSTIC,
+                icon="mdi:dots-horizontal",
+                state_class=None,
+                value_fn=lambda grinder: str(grinder.system_status.active_menu),
+            ),
+        )
+    )
 
     async_add_entities(sensors, update_before_add=True)
 
 
 class GrinderSensor(MahlkonigEntity[MahlkonigSensorEntityDescription], SensorEntity):
-    """The mapping of the input port index to the corresponding output port index"""
+    """The sensor class for Mahlkoenig grinder."""
 
     entity_description: MahlkonigSensorEntityDescription
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return extra attributes."""
+        return self.entity_description.attr_fn(self.coordinator.grinder)
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        self._attr_native_value = self.entity_description.value_fn(
+            self.coordinator.grinder
+        )
+        super()._handle_coordinator_update()
+
+
+class GrinderRestoreSensor(
+    MahlkonigEntity[MahlkonigSensorEntityDescription], RestoreSensor
+):
+    """The sensor class for Mahlkoenig grinder with state restoration."""
+
+    entity_description: MahlkonigSensorEntityDescription
+    _attr_native_value = None
+
+    async def async_added_to_hass(self) -> None:
+        """Handle entity which will be added."""
+        await super().async_added_to_hass()
+
+        restored_data = await self.async_get_last_sensor_data()
+
+        if restored_data is not None:
+            _LOGGER.debug(
+                f"Restoring sensor data for Mahlkoenig {self.entity_description.name}"
+            )
+            self._attr_native_value = restored_data.native_value
+
+        if self.coordinator.available:
+            self._attr_native_value = self.entity_description.value_fn(
+                self.coordinator.grinder
+            )
+
+    @property
+    def available(self) -> bool:
+        """Returns whether entity is available."""
+        return self._attr_native_value is not None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
