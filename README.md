@@ -2,6 +2,8 @@
 
 A Home Assistant integration for the Mahlkönig X54 all-round grinder via its WebSocket API.
 
+![Device page screenshot in Home Assistant](./img/screenshot-ha.png)
+
 ## Features
 
 - Fetches machine data
