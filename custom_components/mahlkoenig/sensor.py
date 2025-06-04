@@ -216,7 +216,7 @@ async def async_setup_entry(
         [
             MahlkonigSensorEntityDescription(
                 key=f"total_errors_{error_no:02}",
-                name=f"Total Errors {error_no:02}",
+                name=f"{kind} - Total Num. Errors",
                 state_class=SensorStateClass.TOTAL_INCREASING,
                 entity_category=EntityCategory.DIAGNOSTIC,
                 icon="mdi:numeric",
@@ -225,7 +225,15 @@ async def async_setup_entry(
                     grinder.statistics, f"total_errors_{e:02}"
                 ),
             )
-            for error_no in (1, 2, 3, 4, 8, 9, 10)
+            for (error_no, kind) in [
+                (1, "Hopper failed"),
+                (2, "WiFi failed"),
+                (3, "Diplay controller failed"),
+                (4, "Display LED failed"),
+                (8, "EEPROM failed"),
+                (9, "Fatal restart"),
+                (10, "Disc lifetime reached"),
+            ]
         ]
     )
 
