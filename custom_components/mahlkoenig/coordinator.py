@@ -23,7 +23,7 @@ type MahlkonigConfigEntry = ConfigEntry[MahlkonigUpdateCoordinator]
 class MahlkonigUpdateCoordinator(DataUpdateCoordinator[None]):
     """Coordinator to fetch all relevant data from my sensor."""
 
-    def __init__(self, hass: HomeAssistant, host: str, port: int):
+    def __init__(self, hass: HomeAssistant, host: str, port: int, password: str):
         """Initialize the coordinator."""
         super().__init__(
             hass,
@@ -33,7 +33,7 @@ class MahlkonigUpdateCoordinator(DataUpdateCoordinator[None]):
         )
         session = async_get_clientsession(hass)
 
-        self._grinder = Grinder(host=host, port=port, session=session)
+        self._grinder = Grinder(host=host, port=port, password=password, session=session)
 
         self._last_recipe_update = datetime.min
         self._last_statistics_update = datetime.min

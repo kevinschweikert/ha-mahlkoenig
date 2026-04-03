@@ -8,7 +8,7 @@ import voluptuous as vol
 
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
-from homeassistant.const import CONF_HOST, CONF_PORT
+from homeassistant.const import CONF_HOST, CONF_PORT, CONF_PASSWORD
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -20,6 +20,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): str,
         vol.Required(CONF_PORT, default=9998): int,
+        vol.Optional(CONF_PASSWORD, default=""): str,
     }
 )
 
@@ -33,6 +34,7 @@ class MahlkonigConfigFlow(ConfigFlow, domain=DOMAIN):
         """Initialize the config flow."""
         self._host: str | None = None
         self._port: int | None = None
+        self._password: str | None = None
         self._device_name: str | None = None
         self._serial_number: str | None = None
 
@@ -45,11 +47,13 @@ class MahlkonigConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self._host = user_input[CONF_HOST]
             self._port = user_input[CONF_PORT]
+            self._password = user_input[CONF_PASSWORD]
 
             try:
                 async with Grinder(
                     host=self._host,
                     port=self._port,
+                    password=self._password,
                     session=async_get_clientsession(self.hass),
                 ) as grinder:
                     await grinder.request_machine_info()
@@ -107,19 +111,26 @@ class MahlkonigConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            # Collect users password for the device
+            password = user_input.get(CONF_PASSWORD, "")
+
             # Create configuration with discovered host and port
             data = {
                 CONF_HOST: self._host,
                 CONF_PORT: self._port,
+                CONF_PASSWORD: password,
             }
 
             try:
                 async with Grinder(
                     host=self._host,
                     port=self._port,
+                    password=password,
                     session=async_get_clientsession(self.hass),
                 ):
                     pass
+            except MahlkoenigAuthenticationError:
+                errors["base"] = "invalid_auth"
             except MahlkoenigConnectionError:
                 errors["base"] = "cannot_connect"
                 return self.async_show_form(
@@ -127,7 +138,7 @@ class MahlkonigConfigFlow(ConfigFlow, domain=DOMAIN):
                     description_placeholders={
                         "name": self._device_name,
                         "host": self._host,
-                        "port": self._port,
+                        "port": str(self._port),
                     },
                     errors=errors,
                 )
@@ -138,14 +149,19 @@ class MahlkonigConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_create_entry(title=title, data=data)
 
         # Show a confirmation dialog to the user
-        self._set_confirm_only()
+        #self._set_confirm_only()
 
         return self.async_show_form(
             step_id="confirm_discovery",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(CONF_PASSWORD, default=""): str,
+                }
+            ),
             description_placeholders={
                 "name": self._device_name,
                 "host": self._host,
-                "port": self._port,
+                "port": str(self._port),
             },
             errors=errors,
         )
