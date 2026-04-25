@@ -33,7 +33,7 @@ _LOGGER = logging.getLogger(__name__)
 class MahlkonigSensorEntityDescription(SensorEntityDescription):
     """Description for X54 sensor entities."""
 
-    value_fn: Callable[[Grinder], int | float | None] = lambda _: None
+    value_fn: Callable[[Grinder], int | float | str | None] = lambda _: None
     attr_fn: Callable[[Grinder], dict[str, Any] | None] = lambda _: None
 
 
@@ -150,7 +150,10 @@ async def async_setup_entry(
                     and recipe.grind_time.total_seconds()
                 ),
             )
-            for recipe_no in coordinator.grinder.recipes.keys()
+            # The X54 always exposes recipes 1–4. Iterating over a fixed range
+            # rather than `coordinator.grinder.recipes.keys()` ensures the
+            # entities exist even when we cold-boot with the grinder offline.
+            for recipe_no in range(1, 5)
         ]
     )
 
@@ -245,7 +248,7 @@ async def async_setup_entry(
         ]
     )
 
-    sensors = [
+    sensors: list[SensorEntity] = [
         GrinderRestoreSensor(coordinator, entity_description)
         for entity_description in entity_descriptions
     ]
@@ -270,9 +273,14 @@ async def async_setup_entry(
 
 
 class GrinderSensor(MahlkonigEntity[MahlkonigSensorEntityDescription], SensorEntity):
-    """The sensor class for Mahlkoenig grinder."""
+    """Live-state sensor — unavailable when the grinder is disconnected."""
 
     entity_description: MahlkonigSensorEntityDescription
+
+    @property
+    def available(self) -> bool:
+        """Live entities are only available while the grinder is connected."""
+        return self.coordinator.grinder.connected
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
@@ -282,16 +290,18 @@ class GrinderSensor(MahlkonigEntity[MahlkonigSensorEntityDescription], SensorEnt
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._attr_native_value = self.entity_description.value_fn(
-            self.coordinator.grinder
-        )
+        if self.coordinator.grinder.connected:
+            self._attr_native_value = self.entity_description.value_fn(
+                self.coordinator.grinder
+            )
+
         super()._handle_coordinator_update()
 
 
 class GrinderRestoreSensor(
     MahlkonigEntity[MahlkonigSensorEntityDescription], RestoreSensor
 ):
-    """The sensor class for Mahlkoenig grinder with state restoration."""
+    """Cached sensor — keeps last-known value when the grinder is offline."""
 
     entity_description: MahlkonigSensorEntityDescription
     _attr_native_value = None
@@ -304,29 +314,33 @@ class GrinderRestoreSensor(
 
         if restored_data is not None:
             _LOGGER.debug(
-                f"Restoring sensor data for Mahlkoenig {self.entity_description.name}"
+                "Restoring sensor data for Mahlkoenig %s",
+                self.entity_description.name,
             )
             self._attr_native_value = restored_data.native_value
 
-        if self.coordinator.available:
+        if self.coordinator.grinder.connected:
             self._attr_native_value = self.entity_description.value_fn(
                 self.coordinator.grinder
             )
 
     @property
     def available(self) -> bool:
-        """Returns whether entity is available."""
+        """Available as long as we have any value (live or restored)."""
         return self._attr_native_value is not None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return extra attributes."""
+        if not self.coordinator.grinder.connected:
+            return None
         return self.entity_description.attr_fn(self.coordinator.grinder)
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._attr_native_value = self.entity_description.value_fn(
-            self.coordinator.grinder
-        )
+        if self.coordinator.grinder.connected:
+            self._attr_native_value = self.entity_description.value_fn(
+                self.coordinator.grinder
+            )
         super()._handle_coordinator_update()

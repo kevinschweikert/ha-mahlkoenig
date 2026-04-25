@@ -56,7 +56,8 @@ class MahlkonigConfigFlow(ConfigFlow, domain=DOMAIN):
                     session=async_get_clientsession(self.hass),
                 ) as grinder:
                     await grinder.request_machine_info()
-                    self._serial_number = grinder.machine_info.serial_no
+                    info = grinder.machine_info
+                    self._serial_number = info.serial_no if info is not None else None
 
                     if self._serial_number:
                         await self.async_set_unique_id(self._serial_number)
@@ -76,6 +77,24 @@ class MahlkonigConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
+
+    async def _try_connect(self, password: str) -> str | None:
+        """Probe the grinder. Returns an error key, or None on success."""
+        assert self._host is not None
+        assert self._port is not None
+        try:
+            async with Grinder(
+                host=self._host,
+                port=self._port,
+                password=password,
+                session=async_get_clientsession(self.hass),
+            ):
+                pass
+        except MahlkoenigAuthenticationError:
+            return "invalid_auth"
+        except MahlkoenigConnectionError:
+            return "cannot_connect"
+        return None
 
     async def async_step_zeroconf(
         self, discovery_info: ZeroconfServiceInfo
@@ -106,61 +125,63 @@ class MahlkonigConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_confirm_discovery(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle discovery confirmation."""
+        """Handle discovery confirmation.
+
+        Most grinders accept connections without a password, so on first entry
+        we probe with an empty password and only fall back to the password
+        form when the device actually rejects auth.
+        """
         errors: dict[str, str] = {}
 
+        # Reached only via async_step_zeroconf, which always sets host/port.
+        assert self._host is not None
+        assert self._port is not None
+
+        placeholders = {
+            "name": self._device_name or "",
+            "host": self._host,
+            "port": str(self._port),
+        }
+
+        # Probe with empty password; if it works, skip the password prompt.
+        if user_input is None:
+            error = await self._try_connect("")
+            if error is None:
+                return self._create_discovered_entry("")
+            if error == "cannot_connect":
+                return self.async_abort(reason="cannot_connect")
+                # invalid_auth → fall through and ask the user for a password.
+
         if user_input is not None:
-            # Collect users password for the device
             password = user_input.get(CONF_PASSWORD, "")
-
-            # Create configuration with discovered host and port
-            data = {
-                CONF_HOST: self._host,
-                CONF_PORT: self._port,
-                CONF_PASSWORD: password,
-            }
-
-            try:
-                async with Grinder(
-                    host=self._host,
-                    port=self._port,
-                    password=password,
-                    session=async_get_clientsession(self.hass),
-                ):
-                    pass
-            except MahlkoenigAuthenticationError:
-                errors["base"] = "invalid_auth"
-            except MahlkoenigConnectionError:
-                errors["base"] = "cannot_connect"
-                return self.async_show_form(
-                    step_id="confirm_discovery",
-                    description_placeholders={
-                        "name": self._device_name,
-                        "host": self._host,
-                        "port": str(self._port),
-                    },
-                    errors=errors,
-                )
-
-            title = self.context.get("title_placeholders", {}).get(
-                "name", f"Mahlkönig X54 ({self._host})"
-            )
-            return self.async_create_entry(title=title, data=data)
-
-        # Show a confirmation dialog to the user
-        #self._set_confirm_only()
+            error = await self._try_connect(password)
+            if error is None:
+                return self._create_discovered_entry(password)
+            errors["base"] = error
 
         return self.async_show_form(
             step_id="confirm_discovery",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_PASSWORD, default=""): str,
+                    vol.Optional(CONF_PASSWORD, default="", msg="Leave empty if no password is set"): str,
                 }
             ),
-            description_placeholders={
-                "name": self._device_name,
-                "host": self._host,
-                "port": str(self._port),
-            },
+            description_placeholders=placeholders,
             errors=errors,
+        )
+
+    def _create_discovered_entry(self, password: str) -> ConfigFlowResult:
+        """Build the ConfigEntry from the discovered host/port and given password."""
+        assert self._host is not None
+        assert self._port is not None
+        title = self.context.get("title_placeholders", {}).get(
+            "name", f"Mahlkönig X54 ({self._host})"
+        )
+        return self.async_create_entry(
+            title=title,
+            data={
+                CONF_HOST: self._host,
+                CONF_PORT: self._port,
+                CONF_PASSWORD: password,
+            },
         )

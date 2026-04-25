@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Mahlkönig X54",
+        "description": "Enter the connection details for your grinder. Leave the password empty if you have not set one.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "password": "Password"
+        }
+      },
+      "confirm_discovery": {
+        "title": "Mahlkönig X54",
+        "description": "A password is required for {name} ({host}:{port}). Leave empty if you have not set one.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the grinder.",
+      "invalid_auth": "Invalid password."
+    },
+    "abort": {
+      "already_configured": "This grinder is already configured.",
+      "cannot_connect": "Failed to connect to the grinder."
+    }
+  }
+}

@@ -22,18 +22,21 @@ class MahlkonigEntity[T](CoordinatorEntity[MahlkonigUpdateCoordinator]):
         super().__init__(coordinator)
         self.entity_description = entity_description
         self.grinder = coordinator.grinder
-        self._attr_unique_id = (
-            f"{self.grinder.machine_info.serial_no}_{self.entity_description.key}"
-        )
+
+        # `coordinator.has_device_info` is enforced before entities are built,
+        # so serial_no is guaranteed non-None here.
+        serial_no = coordinator.serial_no
+        assert serial_no is not None
+        self._attr_unique_id = f"{serial_no}_{self.entity_description.key}"
 
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, self.grinder.machine_info.serial_no)},
+            identifiers={(DOMAIN, serial_no)},
             manufacturer="Mahlkönig",
             model="X54",
             suggested_area="Kitchen",
-            sw_version=self.grinder.machine_info.sw_version,
-            serial_number=self.grinder.machine_info.serial_no,
-            hw_version=self.grinder.machine_info.product_no,
+            sw_version=coordinator.sw_version,
+            serial_number=serial_no,
+            hw_version=coordinator.product_no,
         )
 
     @property
