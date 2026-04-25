@@ -1,7 +1,5 @@
 """Base class for Mahlkonig entities."""
 
-from dataclasses import dataclass
-
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityDescription
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -10,7 +8,6 @@ from .const import DOMAIN
 from .coordinator import MahlkonigUpdateCoordinator
 
 
-@dataclass
 class MahlkonigEntity[T](CoordinatorEntity[MahlkonigUpdateCoordinator]):
     """Common elements for all entities."""
 
@@ -43,8 +40,3 @@ class MahlkonigEntity[T](CoordinatorEntity[MahlkonigUpdateCoordinator]):
     def available(self) -> bool:
         """Returns whether entity is available."""
         return self.coordinator.available
-
-    @property
-    def entity_registry_enabled_default(self) -> bool:
-        """Returns if the entity should be enabled by default in the UI"""
-        return getattr(self.entity_description, "enabled", True)

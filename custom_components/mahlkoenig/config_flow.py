@@ -6,7 +6,6 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_PORT, CONF_PASSWORD
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
@@ -69,8 +68,8 @@ class MahlkonigConfigFlow(ConfigFlow, domain=DOMAIN):
                         title=f"Mahlkönig X54 ({self._host})", data=user_input
                     )
 
-            except MahlkoenigAuthenticationError as err:
-                raise ConfigEntryAuthFailed from err
+            except MahlkoenigAuthenticationError:
+                errors["base"] = "invalid_auth"
             except MahlkoenigConnectionError:
                 errors["base"] = "cannot_connect"
 

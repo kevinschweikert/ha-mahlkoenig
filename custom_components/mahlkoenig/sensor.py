@@ -1,4 +1,4 @@
-"""Video Matrix Mapping Sensor"""
+"""Sensor platform for Mahlkönig X54."""
 
 import logging
 
@@ -33,12 +33,13 @@ _LOGGER = logging.getLogger(__name__)
 class MahlkonigSensorEntityDescription(SensorEntityDescription):
     """Description for X54 sensor entities."""
 
-    enabled: bool = True
     value_fn: Callable[[Grinder], int | float | None] = lambda _: None
     attr_fn: Callable[[Grinder], dict[str, Any] | None] = lambda _: None
 
 
-def _recipe_attrs(recipe: Recipe) -> dict[str, Any] | None:
+def _recipe_attrs(recipe: Recipe | None) -> dict[str, Any] | None:
+    if recipe is None:
+        return None
     return {
         "bean_name": recipe.bean_name,
         "brewing_type": recipe.brewing_type.name,
@@ -141,10 +142,13 @@ async def async_setup_entry(
                 device_class=SensorDeviceClass.DURATION,
                 icon="mdi:av-timer",
                 state_class=SensorStateClass.TOTAL_INCREASING,
-                attr_fn=lambda grinder, r=recipe_no: _recipe_attrs(grinder.recipes[r]),
-                value_fn=lambda grinder, r=recipe_no: grinder.recipes[
-                    r
-                ].grind_time.total_seconds(),
+                attr_fn=lambda grinder, r=recipe_no: _recipe_attrs(
+                    grinder.recipes.get(r)
+                ),
+                value_fn=lambda grinder, r=recipe_no: (
+                    (recipe := grinder.recipes.get(r))
+                    and recipe.grind_time.total_seconds()
+                ),
             )
             for recipe_no in coordinator.grinder.recipes.keys()
         ]
@@ -172,7 +176,9 @@ async def async_setup_entry(
                 name=f"Recipe {recipe_no} Shots",
                 state_class=SensorStateClass.TOTAL_INCREASING,
                 icon="mdi:numeric",
-                attr_fn=lambda grinder, r=recipe_no: _recipe_attrs(grinder.recipes[r]),
+                attr_fn=lambda grinder, r=recipe_no: _recipe_attrs(
+                    grinder.recipes.get(r)
+                ),
                 value_fn=lambda grinder, r=recipe_no: getattr(
                     grinder.statistics, f"recipe_{r}_grind_shots"
                 ),
@@ -191,7 +197,9 @@ async def async_setup_entry(
                 device_class=SensorDeviceClass.DURATION,
                 state_class=SensorStateClass.TOTAL_INCREASING,
                 icon="mdi:clock-time-four",
-                attr_fn=lambda grinder, r=recipe_no: _recipe_attrs(grinder.recipes[r]),
+                attr_fn=lambda grinder, r=recipe_no: _recipe_attrs(
+                    grinder.recipes.get(r)
+                ),
                 value_fn=lambda grinder, r=recipe_no: getattr(
                     grinder.statistics, f"recipe_{r}_grind_time"
                 ).total_seconds(),
@@ -220,7 +228,7 @@ async def async_setup_entry(
                 state_class=SensorStateClass.TOTAL_INCREASING,
                 entity_category=EntityCategory.DIAGNOSTIC,
                 icon="mdi:numeric",
-                enabled=False,
+                entity_registry_enabled_default=False,
                 value_fn=lambda grinder, e=error_no: getattr(
                     grinder.statistics, f"total_errors_{e:02}"
                 ),
@@ -228,7 +236,7 @@ async def async_setup_entry(
             for (error_no, kind) in [
                 (1, "Hopper failed"),
                 (2, "WiFi failed"),
-                (3, "Diplay controller failed"),
+                (3, "Display controller failed"),
                 (4, "Display LED failed"),
                 (8, "EEPROM failed"),
                 (9, "Fatal restart"),

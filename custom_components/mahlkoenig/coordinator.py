@@ -38,11 +38,13 @@ class MahlkonigUpdateCoordinator(DataUpdateCoordinator[None]):
         self._last_recipe_update = datetime.min
         self._last_statistics_update = datetime.min
         self._last_wifi_info_update = datetime.min
+        self._last_auto_sleep_update = datetime.min
 
         # Update intervals for different data types (in seconds)
         self._recipe_update_interval = timedelta(minutes=1)
         self._statistics_update_interval = timedelta(minutes=5)
         self._wifi_info_update_interval = timedelta(minutes=1)
+        self._auto_sleep_update_interval = timedelta(minutes=1)
 
     @property
     def grinder(self) -> Grinder:
@@ -86,7 +88,7 @@ class MahlkonigUpdateCoordinator(DataUpdateCoordinator[None]):
             raise UpdateFailed("Init: Error getting device data of Grinder") from err
 
     async def _async_update_data(self) -> None:
-        """Fetch the latest values status from the video matrix."""
+        """Fetch the latest data from the grinder."""
 
         try:
             async with asyncio.timeout(10):
@@ -94,9 +96,15 @@ class MahlkonigUpdateCoordinator(DataUpdateCoordinator[None]):
                     await self._grinder.connect()
                 await self._grinder.request_machine_info()
                 await self._grinder.request_system_status()
-                await self._grinder.request_auto_sleep_time()
 
                 now = datetime.now()
+                if (
+                    now - self._last_auto_sleep_update
+                ) >= self._auto_sleep_update_interval:
+                    _LOGGER.debug("fetching auto sleep time")
+                    await self._grinder.request_auto_sleep_time()
+                    self._last_auto_sleep_update = now
+
                 if (now - self._last_recipe_update) >= self._recipe_update_interval:
                     _LOGGER.debug("fetching recipe_updates")
                     await self._grinder.request_recipe_list()
@@ -113,7 +121,7 @@ class MahlkonigUpdateCoordinator(DataUpdateCoordinator[None]):
                     now - self._last_wifi_info_update
                 ) >= self._wifi_info_update_interval:
                     _LOGGER.debug("fetching wifi settings")
-                    await self._grinder.request_recipe_list()
+                    await self._grinder.request_wifi_info()
                     self._last_wifi_info_update = now
 
         except MahlkoenigAuthenticationError as err:

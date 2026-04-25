@@ -1,4 +1,4 @@
-"""Video Matrix Mapping Sensor"""
+"""Binary sensor platform for Mahlkönig X54."""
 
 from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
@@ -40,7 +40,7 @@ async def async_setup_entry(
 
 
 class GrinderSensor(MahlkonigEntity[BinarySensorEntityDescription], BinarySensorEntity):
-    """The mapping of the input port index to the corresponding output port index"""
+    """Binary sensor entity for the Mahlkönig grinder."""
 
     entity_description: BinarySensorEntityDescription
 

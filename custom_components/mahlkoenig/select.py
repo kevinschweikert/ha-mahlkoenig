@@ -1,4 +1,4 @@
-"""Video Matrix Mapping Sensor"""
+"""Select platform for Mahlkönig X54."""
 
 from mahlkoenig import AutoSleepTimePreset
 from homeassistant.components.select import (
@@ -42,7 +42,7 @@ async def async_setup_entry(
 
 
 class GrinderSensor(MahlkonigEntity[SelectEntityDescription], SelectEntity):
-    """The mapping of the input port index to the corresponding output port index"""
+    """Select entity exposing grinder configuration options."""
 
     entity_description: SelectEntityDescription
 
